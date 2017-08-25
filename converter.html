@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css"
+          integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+
+    <title>Image Converter</title>
+
+    <style>
+        canvas {
+            background-color: black;
+        }
+
+        .btn-pick-color {
+            width: 1rem;
+            height: 1rem;
+            padding: 0;
+            display: inline;
+        }
+
+        .btn-pick-color.collapse {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="mt-3">
+        Image Converter<br>
+        <small class="text-muted">convert images to Arduino friendly formats &copy; 2017 Michal Dvořák</small>
+    </h1>
+    <div class="card mt-3">
+        <div class="card-header">1. Load Image</div>
+        <div class="card-body">
+            <label for="file"></label>
+            <input id="file" type="file" onchange="onLoadImage()">
+        </div>
+    </div>
+
+    <div class="image-loaded collapse">
+        <div class="card mt-3">
+            <div class="card-header">2. Output Type</div>
+            <div class="card-body">
+                <h4 class="card-title">Image Format</h4>
+                <div class="form-check">
+                    <label class="form-check-label">
+                        <input class="form-check-input" type="radio" name="outputType"
+                               value="rgb888"
+                               onchange="generateCodeAndPreview()">
+                        RGB888
+                    </label>
+                </div>
+                <div class="form-check">
+                    <label class="form-check-label">
+                        <input class="form-check-input" type="radio" name="outputType"
+                               value="rgb565" checked
+                               onchange="generateCodeAndPreview()">
+                        RGB565
+                    </label>
+                </div>
+                <div class="form-check">
+                    <label class="form-check-label">
+                        <input class="form-check-input" type="radio" name="outputType"
+                               value="singleColor"
+                               onchange="generateCodeAndPreview()">
+                        Single Color
+                        <small class="text-muted">(for best results use gray-scale source image)</small>
+                    </label>
+                </div>
+                <div class="form-check">
+                    <label class="form-check-label">
+                        <input class="form-check-input" type="radio" name="outputType"
+                               value="bitmap"
+                               onchange="generateCodeAndPreview()">
+                        Bitmap
+                        <small class="text-muted">(for best results use B&W source image)</small>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-group mt-3">
+            <div class="card">
+                <div class="card-header">3. Original</div>
+                <div class="card-body">
+                    <canvas id="image"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">Preview
+                    <button type="button" class="btn btn-pick-color"
+                            style="background: #FF0000;"
+                            onclick="selectPreviewColor(this.style.backgroundColor)"></button>
+                    <button type="button" class="btn btn-pick-color"
+                            style="background: #00FF00;"
+                            onclick="selectPreviewColor(this.style.backgroundColor)"></button>
+                    <button type="button" class="btn btn-pick-color"
+                            style="background: #0000FF;"
+                            onclick="selectPreviewColor(this.style.backgroundColor)"></button>
+                    <button type="button" class="btn btn-pick-color"
+                            style="background: #FFFF00;"
+                            onclick="selectPreviewColor(this.style.backgroundColor)"></button>
+                    <button type="button" class="btn btn-pick-color"
+                            style="background: #FFFFFF;"
+                            onclick="selectPreviewColor(this.style.backgroundColor)"></button>
+                </div>
+                <div class="card-body">
+                    <canvas id="imagePreview"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <div class="d-flex justify-content-between">
+                    4. Generated Code
+                    <div class="btn-group">
+                        <a id="downloadRaw" class="btn btn-outline-secondary btn-sm" role="button"
+                           href="">
+                            Download RAW
+                        </a>
+                        <button id="copy" class="btn btn-outline-primary btn-sm btn-clipboard" type="button"
+                                data-clipboard-target="#code" style="display: none;">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <pre><code id="code"></code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function onLoadImage() {
+        var input = document.getElementById("file");
+        var canvas = document.getElementById("image");
+        var canvasPreview = document.getElementById("imagePreview");
+        var code = document.getElementById("code");
+        var downloadRaw = document.getElementById("downloadRaw");
+
+        // Reset
+        code.innerText = "";
+        canvas.width = canvas.height = 0;
+        canvasPreview.width = canvasPreview.height = 0;
+
+        addClassName(".image-loaded", "collapse");
+        addClassName(".btn-pick-color", "collapse");
+
+        downloadRaw.href = "";
+
+        var file = input.files[0];
+
+        // Read file
+        var reader = new FileReader();
+
+        reader.onload = function () {
+            // Parse as image
+            var img = new Image();
+
+            img.onload = function () {
+                // Store to canvas
+                canvas.width = img.width;
+                canvas.height = img.height;
+
+                var ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0);
+
+                // Show content
+                removeClassName(".image-loaded", "collapse");
+
+                // Generate code
+                generateCodeAndPreview();
+            };
+
+            img.src = reader.result;
+        };
+
+        // Do work
+        reader.readAsDataURL(file);
+    }
+
+    function selectPreviewColor(color) {
+        window.imagePreviewColor = color;
+        generateCodeAndPreview();
+    }
+
+    function getPreviewColor() {
+        return (window.imagePreviewColor || 'rgb(255,0,0)').split("(")[1].split(")")[0].split(",").map(Number);
+    }
+
+    function generateCodeAndPreview() {
+        var input = document.getElementById("file");
+        var code = document.getElementById("code");
+        var canvas = document.getElementById("image");
+        var image = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+        var downloadRaw = document.getElementById("downloadRaw");
+
+        var previewContext = document.getElementById("imagePreview").getContext("2d");
+        var previewImage = previewContext.createImageData(canvas.width, canvas.height);
+
+        if (downloadRaw.href) {
+            URL.revokeObjectURL(downloadRaw.href);
+            downloadRaw.href = "";
+        }
+
+        // Variable name
+        var file = input.files[0];
+        var varName = 'IMG_' + (file.name || '')
+            .replace(/\..*$/, '')
+            .replace(/[^0-9a-zA-Z]+/g, '_')
+            .replace(/_+$/, '')
+            .toUpperCase();
+
+        // Get selected type
+        var outputType = document.querySelector('input[name=outputType]:checked').value;
+        console.log('outputType', outputType);
+
+        // Generate
+        var result;
+
+        switch (outputType) {
+            case 'rgb888':
+                result = generateRgb888(image.data, previewImage.data);
+                addClassName(".btn-pick-color", "collapse");
+                break;
+
+            case 'rgb565':
+                result = generateRgb565(image.data, previewImage.data);
+                addClassName(".btn-pick-color", "collapse");
+                break;
+
+            case 'singleColor':
+                result = generateSingleColor(image.data, previewImage.data);
+                removeClassName(".btn-pick-color", "collapse");
+                break;
+
+            case 'bitmap':
+                result = generateBitmap(image.data, previewImage.data);
+                removeClassName(".btn-pick-color", "collapse");
+                break;
+
+            default:
+                code.innerText = 'ERROR';
+                addClassName(".btn-pick-color", "collapse");
+                return;
+        }
+
+        // Generate code
+        code.innerText = '// ' + result.name + ' ' + image.width + 'x' + image.height + ' px\n' +
+            'static const uint' + (result.bits) + '_t ' + varName + '[' + result.data.length + '] PROGMEM = {' +
+            generateProgramData(result.data, result.bits / 4) +
+            '\n};';
+
+        // Update preview
+        previewContext.canvas.width = canvas.width;
+        previewContext.canvas.height = canvas.height;
+        previewContext.putImageData(previewImage, 0, 0);
+
+        // Prepare file for download
+        // Specify the filename using the File constructor, but ...
+        var fileName = file.name.replace(/\..*?$/, '.raw');
+        var resultFile = new File(result.data, fileName, {type: 'application/octet-stream'});
+
+        downloadRaw.href = URL.createObjectURL(resultFile);
+        downloadRaw.download = fileName;
+    }
+
+    function generateRgb888(pixels, previewPixels) {
+        var data = [];
+
+        // Copy array
+        for (var i = 0, n = pixels.length; i < n; i++) {
+            previewPixels[i] = data[i] = pixels[i];
+        }
+
+        // Return
+        return {
+            name: 'RGB888 (24bpp)',
+            data: data,
+            bits: 8
+        };
+    }
+
+    function generateRgb565(pixels, previewPixels) {
+        var data = [];
+
+        for (var i = 0, n = pixels.length; i < n; i += 4) {
+            // Average color, with alpha channel
+            var color = toRgb565(pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]);
+            data.push(color);
+
+            // Convert back for preview
+            writeRgb888(previewPixels, i, color);
+        }
+
+        // Return
+        return {
+            name: 'RGB565 (16bpp)',
+            data: data,
+            bits: 16
+        };
+    }
+
+    function generateSingleColor(pixels, previewPixels) {
+        var previewColor = getPreviewColor();
+        var data = [];
+
+        for (var i = 0, n = pixels.length; i < n; i += 4) {
+            // Color intensity
+            var color = Math.round(((pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3) * (pixels[i + 3] / 255));
+            data.push(color);
+
+            // Preview
+            previewPixels[i] = previewColor[0]; // R
+            previewPixels[i + 1] = previewColor[1]; // G
+            previewPixels[i + 2] = previewColor[2]; // B
+            previewPixels[i + 3] = color; // A
+        }
+
+        // Return
+        return {
+            name: 'SingleColor (8bpp)',
+            data: data,
+            bits: 8
+        };
+    }
+
+    function generateBitmap(pixels, previewPixels) {
+        var previewColor = getPreviewColor();
+        var data = [];
+        var bit = 0;
+        var bitValue = 0;
+
+        for (var i = 0, n = pixels.length; i < n; i += 4) {
+            // Average color, with alpha channel
+            var color = Math.floor(((pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3) * (pixels[i + 3] / 255)) > 0;
+
+            // Preview
+            previewPixels[i] = previewColor[0]; // R
+            previewPixels[i + 1] = previewColor[1]; // G
+            previewPixels[i + 2] = previewColor[2]; // B
+            previewPixels[i + 3] = color ? 0xFF : 0; // A
+
+            // Bitmask
+            bitValue = bitValue | (color << bit++);
+
+            // Write
+            if (bit === 8) {
+                data.push(bitValue);
+                bitValue = 0;
+                bit = 0;
+            }
+        }
+
+        // Return
+        return {
+            name: 'Bitmap (1bpp)',
+            data: data,
+            bits: 8
+        };
+    }
+
+    function generateProgramData(data, padding) {
+        var str = '';
+        var linewrap = Math.floor(112 / (padding + 4));
+
+        for (var i = 0; i < data.length; i++) {
+            if (i % linewrap === 0) {
+                str += '\n        ';
+            }
+
+            // To hex with padding
+            str += '0x' + padLeft(data[i].toString(16).toUpperCase(), padding) + ", ";
+        }
+
+        return str;
+    }
+
+    function toRgb565(r, g, b, a) {
+        // Include alpha
+        if (!isNaN(a)) {
+            r = Math.round(r * (a / 255));
+            g = Math.round(g * (a / 255));
+            b = Math.round(b * (a / 255));
+        }
+
+        // Convert
+        return ((r & 248) << 8) + ((g & 252) << 3) + ((b & 248) >> 3);
+    }
+
+    function writeRgb888(data, index, rgb565) {
+        data[index++] = rgb565 >> 8; // R
+        data[index++] = (rgb565 >> 3) & 0xFE; // G
+        data[index++] = (rgb565 & 0x1F) << 3; // B
+        data[index] = 0xFF; // A
+    }
+
+    function padLeft(str, len) {
+        // Slow but working
+        while (str.length < len) {
+            str = '0' + str;
+        }
+
+        return str;
+    }
+
+    function addClassName(selector, className) {
+        document.querySelectorAll(selector).forEach(function (t) {
+            t.className += ' ' + className;
+        });
+    }
+
+    function removeClassName(selector, className) {
+        var matcher = new RegExp('\\s*\\b' + className + '\\b', 'g');
+
+        document.querySelectorAll(selector).forEach(function (t) {
+            t.className = t.className.replace(matcher, "");
+        });
+    }
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.7.1/clipboard.min.js"></script>
+<script>
+    // Init clipboard button
+    new Clipboard('.btn-clipboard');
+    document.getElementById('copy').style.display = '';
+</script>
+</body>
+</html>
