@@ -277,6 +277,7 @@ SOFTWARE.
         }
 
         // Generate code
+        // TODO output width/height constants
         code.innerText = '// ' + result.name + ' ' + image.width + 'x' + image.height + ' px\n' +
             'static const uint' + (result.bits) + '_t ' + varName + '[' + result.data.length + '] PROGMEM = {' +
             generateProgramData(result.data, result.bits / 4) +
@@ -362,6 +363,7 @@ SOFTWARE.
         var bit = 0;
         var bitValue = 0;
 
+        // TODO XBM requires every line to be padded to whole byte
         for (var i = 0, n = pixels.length; i < n; i += 4) {
             // Average color, with alpha channel
             var color = Math.floor(((pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3) * (pixels[i + 3] / 255)) > 0;
